@@ -196,6 +196,9 @@ class FullyConnectedNet(object):
                 dim = hidden_dims[layer-2]
             self.params["W"+str(layer)] = weight_scale * np.random.randn(dim, hidden_dims[layer-1])
             self.params["b"+str(layer)] = np.zeros(hidden_dims[layer-1])
+            if self.use_batchnorm:
+                self.params["beta"+str(layer)] = np.random.randn(hidden_dims[layer-1])
+                self.params["gamma"+str(layer)] = np.random.randn(hidden_dims[layer-1])
         
         self.params["W"+str(self.num_layers)] = weight_scale * np.random.randn(hidden_dims[-1], num_classes)
         self.params["b"+str(self.num_layers)] = np.zeros(num_classes)
@@ -220,7 +223,7 @@ class FullyConnectedNet(object):
         self.bn_params = []
         if self.use_batchnorm:
             self.bn_params = [{'mode': 'train'} for i in range(self.num_layers - 1)]
-
+        print("Here", len(self.bn_params))
         # Cast all parameters to the correct datatype
         for k, v in self.params.items():
             self.params[k] = v.astype(dtype)
@@ -258,13 +261,21 @@ class FullyConnectedNet(object):
         ############################################################################
         caches = {}
         prev_layer = 0
+        
+
         for layer in range(1, self.num_layers):
             if layer == 1:
-                scores, cache = affine_relu_forward(X, self.params["W1"], self.params["b1"])
+                if self.use_batchnorm:
+                    scores, cache = affine_batchnorm_relu_forward(X, self.params["W1"], self.params["b1"], self.params["gamma1"], self.params["beta1"], self.bn_params[0])
+                else:
+                    scores, cache = affine_relu_forward(X, self.params["W1"], self.params["b1"])
                 caches[1] = cache
                 prev_layer = scores
             else:
-                scores, cache = affine_relu_forward(prev_layer, self.params["W"+str(layer)], self.params["b"+str(layer)])
+                if self.use_batchnorm:
+                    scores, cache = affine_batchnorm_relu_forward(prev_layer, self.params["W"+str(layer)], self.params["b"+str(layer)], self.params["gamma"+str(layer)], self.params["beta"+str(layer)], self.bn_params[layer-1])
+                else:
+                    scores, cache = affine_relu_forward(prev_layer, self.params["W"+str(layer)], self.params["b"+str(layer)])
                 caches[layer] = cache
                 prev_layer = scores
         last_weights = self.params["W"+str(self.num_layers)]
@@ -300,11 +311,17 @@ class FullyConnectedNet(object):
             if layer == self.num_layers:
                 dx, dw, db = affine_backward(dy, cache_out)
             else:
-                dx, dw, db = affine_relu_backward(dPrev, caches[layer])
+                if self.use_batchnorm:
+                    dx, dw, db, dgamma, dbeta = affine_batchnorm_relu_backward(dPrev, caches[layer])
+                    grads["beta"+str(layer)] = dbeta
+                    grads["gamma"+str(layer)] = dgamma
+                else:
+                    dx, dw, db = affine_relu_backward(dPrev, caches[layer])
             dw += self.reg * Wlayer
             dPrev=dx
             grads["W"+str(layer)] = dw
             grads["b"+str(layer)] = db
+            
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -312,7 +329,25 @@ class FullyConnectedNet(object):
         return loss, grads
                                                                
                                            
-                                           
-                                           
-                                           
+            
+def affine_batchnorm_relu_forward(x, w, b, gamma, beta, bn_param):
+    a, fc_cache = affine_forward(x, w, b)
+    b, batch_cache = batchnorm_forward(a, gamma, beta, bn_param)
+    out, relu_cache = relu_forward(b)
+    cache = (fc_cache, batch_cache, relu_cache)
+    return out, cache
+                                    
+
+def affine_batchnorm_relu_backward(dout, cache):
+    fc_cache, batch_cache, relu_cache = cache
+    da = relu_backward(dout, relu_cache)
+    dbatch, dgamma, dbeta = batchnorm_backward(da, batch_cache)
+    dx, dw, db = affine_backward(dbatch, fc_cache)
+    return dx, dw, db, dgamma, dbeta
+
+
+
+
+
+
                                            
