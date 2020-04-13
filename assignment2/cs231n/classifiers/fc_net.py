@@ -223,7 +223,6 @@ class FullyConnectedNet(object):
         self.bn_params = []
         if self.use_batchnorm:
             self.bn_params = [{'mode': 'train'} for i in range(self.num_layers - 1)]
-        print("Here", len(self.bn_params))
         # Cast all parameters to the correct datatype
         for k, v in self.params.items():
             self.params[k] = v.astype(dtype)
@@ -245,7 +244,8 @@ class FullyConnectedNet(object):
         if self.use_batchnorm:
             for bn_param in self.bn_params:
                 bn_param['mode'] = mode
-
+        
+       
         scores = None
         ############################################################################
         # TODO: Implement the forward pass for the fully-connected net, computing  #
@@ -269,15 +269,18 @@ class FullyConnectedNet(object):
                     scores, cache = affine_batchnorm_relu_forward(X, self.params["W1"], self.params["b1"], self.params["gamma1"], self.params["beta1"], self.bn_params[0])
                 else:
                     scores, cache = affine_relu_forward(X, self.params["W1"], self.params["b1"])
-                caches[1] = cache
-                prev_layer = scores
             else:
                 if self.use_batchnorm:
                     scores, cache = affine_batchnorm_relu_forward(prev_layer, self.params["W"+str(layer)], self.params["b"+str(layer)], self.params["gamma"+str(layer)], self.params["beta"+str(layer)], self.bn_params[layer-1])
                 else:
                     scores, cache = affine_relu_forward(prev_layer, self.params["W"+str(layer)], self.params["b"+str(layer)])
-                caches[layer] = cache
-                prev_layer = scores
+            if self.use_dropout:
+                scores, dropout_cache = dropout_forward(scores, self.dropout_param)
+                cache_as_list = list(cache)
+                cache_as_list.append(dropout_cache)
+                cache = tuple(cache_as_list)
+            caches[layer] = cache
+            prev_layer = scores
         last_weights = self.params["W"+str(self.num_layers)]
         last_bias = self.params["b"+str(self.num_layers)]
         scores, cache_out = affine_forward(prev_layer, last_weights, last_bias)
@@ -311,12 +314,19 @@ class FullyConnectedNet(object):
             if layer == self.num_layers:
                 dx, dw, db = affine_backward(dy, cache_out)
             else:
+                current_cache = caches[layer]
                 if self.use_batchnorm:
-                    dx, dw, db, dgamma, dbeta = affine_batchnorm_relu_backward(dPrev, caches[layer])
+                    if self.use_dropout:
+                        dPrev = dropout_backward(dPrev, caches[layer][-1])
+                        current_cache = cache[layer][:-1]
+                    dx, dw, db, dgamma, dbeta = affine_batchnorm_relu_backward(dPrev, current_cache)
                     grads["beta"+str(layer)] = dbeta
                     grads["gamma"+str(layer)] = dgamma
                 else:
-                    dx, dw, db = affine_relu_backward(dPrev, caches[layer])
+                    if self.use_dropout:
+                        dPrev = dropout_backward(dPrev, caches[layer][-1])
+                        current_cache = current_cache[:-1]
+                    dx, dw, db = affine_relu_backward(dPrev, current_cache)
             dw += self.reg * Wlayer
             dPrev=dx
             grads["W"+str(layer)] = dw
