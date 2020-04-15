@@ -393,16 +393,42 @@ def conv_forward_naive(x, w, b, conv_param):
       W' = 1 + (W + 2 * pad - WW) / stride
     - cache: (x, w, b, conv_param)
     """
+    print(x.shape)
     out = None
+    F = int(b.shape[0])
+    N = int(x.shape[0])
     ###########################################################################
     # TODO: Implement the convolutional forward pass.                         #
     # Hint: you can use the function np.pad for padding.                      #
     ###########################################################################
-    pass
+    H = x.shape[2]
+    W = x.shape[3]
+    HH = w.shape[2]
+    WW = w.shape[3]
+    stride = conv_param["stride"]
+    H_prime = int(1 + (H + 2 * conv_param["pad"] - HH) / stride)
+    W_prime = int(1 + (W + 2 * conv_param["pad"] - WW) / stride)
+    out = np.full((N, F, H_prime, W_prime), 0, dtype=float)
+    npad=((0,0),(0,0), (conv_param["pad"],conv_param["pad"]), (conv_param["pad"],conv_param["pad"]))
+    x = np.pad(x, pad_width=npad, mode='constant', constant_values=0)
+    for i in range(N):
+        for j in range(F):
+            out_y = curr_y = 0
+            while curr_y + stride <= H:
+                out_x = curr_x = 0
+                while curr_x + stride <= W:
+                    current_input_frame = x[i,:,curr_y:curr_y+HH,curr_x:curr_x+WW]
+                    activation_map = np.sum(current_input_frame * w[j]) + b[j]
+                    out[i, j, out_y, out_x] += activation_map
+                    curr_x += stride
+                    out_x += 1
+                out_y += 1
+                curr_y += stride    
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
     cache = (x, w, b, conv_param)
+    print(out[0])
     return out, cache
 
 
