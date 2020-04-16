@@ -393,7 +393,6 @@ def conv_forward_naive(x, w, b, conv_param):
       W' = 1 + (W + 2 * pad - WW) / stride
     - cache: (x, w, b, conv_param)
     """
-    print(x.shape)
     out = None
     F = int(b.shape[0])
     N = int(x.shape[0])
@@ -428,7 +427,6 @@ def conv_forward_naive(x, w, b, conv_param):
     #                             END OF YOUR CODE                            #
     ###########################################################################
     cache = (x, w, b, conv_param)
-    print(out[0])
     return out, cache
 
 
@@ -446,13 +444,43 @@ def conv_backward_naive(dout, cache):
     - db: Gradient with respect to b
     """
     dx, dw, db = None, None, None
+    x, w, b, conv_param = cache
+    stride = conv_param["stride"]
+    F = int(b.shape[0])
+    H = x.shape[2]
+    W = x.shape[3]
+    HH = w.shape[2]
+    WW = w.shape[3]
+    N = int(x.shape[0])
+    dw = np.zeros_like(w)
+    dx = np.zeros_like(x)
+    db = np.zeros_like(b)
+    H_out = dout.shape[2]
+    W_out = dout.shape[3]
     ###########################################################################
     # TODO: Implement the convolutional backward pass.                        #
     ###########################################################################
-    pass
+
+    for j in range(F):
+        out_y = curr_y = 0
+        while curr_y + stride <= H_out:
+            out_x = curr_x = 0
+            while curr_x + stride <= W_out:
+                for i in range(N):
+                    dw[j,:] += x[i,:, curr_y:curr_y + HH, curr_x: curr_x + WW] * dout[i,j,out_y,out_x]
+                    #print(dout[i,j,out_y,out_x])
+                    dx[i,:, curr_y:curr_y + HH, curr_x: curr_x + WW] += w[j] * dout[i,j,out_y,out_x]
+                    db[j] += dout[i,j,out_y,out_x]
+                curr_x += stride
+                out_x += 1
+            out_y += 1
+            curr_y += stride
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
+    #db = np.ones(b.shape) * dout
+    dx = dx.reshape(4,3,5,5)
+    print("Mine", dx[0,0,6])
     return dx, dw, db
 
 
