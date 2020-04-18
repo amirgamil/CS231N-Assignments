@@ -460,7 +460,7 @@ def conv_backward_naive(dout, cache):
     ###########################################################################
     # TODO: Implement the convolutional backward pass.                        #
     ###########################################################################
-
+    pad = conv_param["pad"]
     for j in range(F):
         out_y = curr_y = 0
         while curr_y + stride <= H_out:
@@ -479,8 +479,8 @@ def conv_backward_naive(dout, cache):
     #                             END OF YOUR CODE                            #
     ###########################################################################
     #db = np.ones(b.shape) * dout
-    dx = dx.reshape(4,3,5,5)
     print("Mine", dx[0,0,6])
+    dx = dx[:,:,pad:-pad,pad:-pad]
     return dx, dw, db
 
 
