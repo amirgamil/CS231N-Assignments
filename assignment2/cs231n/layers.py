@@ -479,7 +479,6 @@ def conv_backward_naive(dout, cache):
     #                             END OF YOUR CODE                            #
     ###########################################################################
     #db = np.ones(b.shape) * dout
-    print("Mine", dx[0,0,6])
     dx = dx[:,:,pad:-pad,pad:-pad]
     return dx, dw, db
 
@@ -500,10 +499,31 @@ def max_pool_forward_naive(x, pool_param):
     - cache: (x, pool_param)
     """
     out = None
+    N = x.shape[0]
+    C = x.shape[1]
+    H = x.shape[2]
+    W = x.shape[3]
+    pool_height = pool_param["pool_height"]
+    pool_width = pool_param["pool_width"]
+    stride = pool_param["stride"]
+    W_prime = int(((W - pool_width)/stride) + 1)
+    H_prime = int(((H - pool_height)/stride) + 1)
+    out = np.full((N, C, H_prime, W_prime), 0, dtype=float)
     ###########################################################################
     # TODO: Implement the max pooling forward pass                            #
     ###########################################################################
-    pass
+    for i in range(N):
+        for j in range(C):
+            out_y = curr_y = 0
+            while curr_y + stride <= H:
+                out_x = curr_x = 0
+                while curr_x + stride <= W:
+                    segment = x[i,j,curr_y:curr_y + pool_height,curr_x :curr_x + pool_width]
+                    out[i, j, out_y, out_x] = np.max(segment)
+                    out_x += 1
+                    curr_x += stride
+                out_y += 1
+                curr_y += stride
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -522,11 +542,33 @@ def max_pool_backward_naive(dout, cache):
     Returns:
     - dx: Gradient with respect to x
     """
-    dx = None
+    (x, pool_param) = cache
+    dx = np.zeros_like(x)
+    pool_height = pool_param["pool_height"]
+    pool_width = pool_param["pool_width"]
+    stride = pool_param["stride"]
+    N = x.shape[0]
+    C = x.shape[1]
+    H = x.shape[2]
+    W = x.shape[3]
+    H_prime = dout.shape[2]
+    W_prime = dout.shape[3]
     ###########################################################################
     # TODO: Implement the max pooling backward pass                           #
     ###########################################################################
-    pass
+    for i in range(N):
+        for j in range(C):
+            out_y = curr_y = 0
+            while curr_y + stride <= H:
+                out_x = curr_x = 0
+                while curr_x + stride <= W:
+                    image_portion = x[i,j,curr_y:curr_y + pool_height,curr_x :curr_x + pool_width]
+                    dx[i,j,curr_y:curr_y + pool_height,curr_x :curr_x + pool_width] = (image_portion == np.max(image_portion)).astype(int) * dout[i,j,out_y, out_x]
+                    out_x += 1
+                    curr_x += stride
+                out_y += 1
+                curr_y += stride
+                     
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -556,7 +598,12 @@ def spatial_batchnorm_forward(x, gamma, beta, bn_param):
     - cache: Values needed for the backward pass
     """
     out, cache = None, None
-
+    N = x.shape[0]
+    C = x.shape[1]
+    H = x.shape[2]
+    W = x.shape[3]
+    out = np.zeros_like(x)
+    caches = []
     ###########################################################################
     # TODO: Implement the forward pass for spatial batch normalization.       #
     #                                                                         #
@@ -564,12 +611,16 @@ def spatial_batchnorm_forward(x, gamma, beta, bn_param):
     # version of batch normalization defined above. Your implementation should#
     # be very short; ours is less than five lines.                            #
     ###########################################################################
-    pass
+    for i in range(C):
+        x_input = x[:,i,:,:].reshape(N, -1)
+        out_initial, cache = batchnorm_forward(x_input, gamma[i], beta[i], bn_param)
+        out[:,i,:,:] = out_initial.reshape(N, H, W)
+        caches.append(cache)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
 
-    return out, cache
+    return out, caches
 
 
 def spatial_batchnorm_backward(dout, cache):
@@ -586,7 +637,13 @@ def spatial_batchnorm_backward(dout, cache):
     - dbeta: Gradient with respect to shift parameter, of shape (C,)
     """
     dx, dgamma, dbeta = None, None, None
-
+    N = dout.shape[0]
+    C = dout.shape[1]
+    H = dout.shape[2]
+    W = dout.shape[3]
+    dx = np.zeros_like(dout)
+    dgamma= np.zeros(C)
+    dbeta = np.zeros(C)
     ###########################################################################
     # TODO: Implement the backward pass for spatial batch normalization.      #
     #                                                                         #
@@ -594,7 +651,12 @@ def spatial_batchnorm_backward(dout, cache):
     # version of batch normalization defined above. Your implementation should#
     # be very short; ours is less than five lines.                            #
     ###########################################################################
-    pass
+    for i in range(C):
+        dout_reshape = dout[:,i,:,:].reshape(N, -1)
+        dx_initial, gamma, beta = batchnorm_backward(dout_reshape, cache[i])
+        dgamma[i] = np.sum(gamma)
+        dbeta[i] = np.sum(beta)
+        dx[:,i,:,:] += dx_initial.reshape(N, H, W)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
