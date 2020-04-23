@@ -411,7 +411,7 @@ def lstm_forward(x, h0, Wx, Wh, b):
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
-    return h, cache
+    return h, caches
 
 
 def lstm_backward(dh, cache):
@@ -437,13 +437,12 @@ def lstm_backward(dh, cache):
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     T = dh.shape[1]
     N = dh.shape[0]
-    print(len(cache[T-1]))
     dx_first, dh_current, dnext_c, dWx, dWh, db = lstm_step_backward(dh[:,T-1,:], 0 , cache[T-1])
     D = dx_first.shape[1]
     dx = np.full((N, T, D), 0, dtype=float)
     dx[:,T-1,:] = dx_first
     for t in range(T-2, -1, -1):
-        dx_1, dprev_h, dprev_c, dWx_local1, dWh_local1, db_local1 = lstm_backward(dh[:,t,:]+dh_current, dnext_c, cahce[t])
+        dx_1, dprev_h, dprev_c, dWx_local1, dWh_local1, db_local1 = lstm_step_backward(dh[:,t,:]+dh_current, dnext_c, cache[t])
         dnext_c = dprev_c
         dh_current = dprev_h
         dx[:,t,:] = dx_1
